@@ -1,0 +1,14 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>SPA Shop</title></head>
+<body>
+<div id="root"></div>
+<noscript>You need to enable JavaScript to run this app.</noscript>
+<script>
+  const items = [["Nova Air 13", "Nova", "2,899"], ["Zeta Slim 13", "Zeta", "2,799"], ["Acme Book 14", "Acme", "3,499"]];
+  const filler = "This catalogue is rendered entirely in the browser by JavaScript. ".repeat(12);
+  document.getElementById("root").innerHTML =
+    "<h1>Rendered laptops</h1><ul>" +
+    items.map(i => `<li>${i[0]} | ${i[1]} | AED ${i[2]}</li>`).join("") +
+    "</ul><p>" + filler + "</p>";
+</script>
+</body></html>

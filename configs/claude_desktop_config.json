@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "scraper": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm", "--init",
+        "--env-file", "/ABSOLUTE/PATH/TO/project/.env",
+        "-v", "/ABSOLUTE/PATH/TO/project/data:/data",
+        "scraper-mcp:latest",
+        "--transport", "stdio"
+      ]
+    }
+  }
+}
