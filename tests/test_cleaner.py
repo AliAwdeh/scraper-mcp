@@ -11,10 +11,10 @@ def test_clean_listing_page():
     assert page.title.startswith("Gadget Shop")
     assert page.next_page_url == "http://shop.test/shop_page2.html"
     assert page.json_ld and page.json_ld[0]["@type"] == "ItemList"
-    assert "[Acme Book 14](http://shop.test/p/acme-14)" in page.text  # links made absolute
-    assert "My account" not in page.text  # navigation removed
-    assert "All rights reserved" not in page.text  # footer removed
-    assert ".card" not in page.text  # CSS removed
+    assert "[Acme Book 14](http://shop.test/p/acme-14)" in page.text
+    assert "My account" not in page.text
+    assert "All rights reserved" not in page.text
+    assert ".card" not in page.text
 
 
 def test_js_detection():
@@ -41,14 +41,14 @@ def test_data_hidden_in_attributes_is_surfaced():
         <meta itemprop="ratingValue" content="4.5"><img src="s.png" alt="4.5 out of 5 stars"></article></li>
     </ol></main></body></html>"""
     text = clean_html(html, "http://x.test/").text
-    assert "[class: star-rating Three]" in text           # rating stored as a CSS class
-    assert "icon-star" not in text                        # ...without the misleading child icons
-    assert '"A Light in the Attic")' in text              # full title behind truncated link text (link title)
-    assert "title:" not in text                           # ...and not duplicated as a note
-    assert "Rated 4.5 out of 5" in text                   # aria-label
+    assert "[class: star-rating Three]" in text
+    assert "icon-star" not in text
+    assert '"A Light in the Attic")' in text
+    assert "title:" not in text
+    assert "Rated 4.5 out of 5" in text
     assert "data-review-count: 1204" in text and "datetime: 2026-03-01" in text
     assert "ratingValue: 4.5" in text and "image: 4.5 out of 5 stars" in text
-    assert text.count("---") >= 2                         # cards are separated
+    assert text.count("---") >= 2
     assert text.index("star-rating Three") < text.index("A Light in the Attic") < text.index("---", text.index("51.77"))
 
 
@@ -64,11 +64,10 @@ def test_next_page_detection_variants():
     base = "http://x.test/list/1"
     def nxt(body):
         return clean_html(f"<html><body><main><p>{'text ' * 100}</p>{body}</main></body></html>", base).next_page_url
-    # Bootstrap pager (quotes.toscrape.com): text "Next →", class on the parent <li>
     assert nxt('<ul class="pager"><li class="previous"><a href="/list/0">&larr; Previous</a></li>'
                '<li class="next"><a href="/list/2">Next <span aria-hidden="true">&rarr;</span></a></li></ul>') == "http://x.test/list/2"
     assert nxt('<a class="pagination-next" href="/list/2"><svg></svg></a>') == "http://x.test/list/2"
     assert nxt('<a href="/list/2">Next page »</a>') == "http://x.test/list/2"
     assert nxt('<a href="/list/2">›</a>') == "http://x.test/list/2"
     assert nxt('<a href="/list/0">&larr; Previous</a><a href="/news">Next.js news</a>') is None
-    assert nxt('<a href="https://other.test/2">Next</a>') is None  # pagination stays on the same site
+    assert nxt('<a href="https://other.test/2">Next</a>') is None

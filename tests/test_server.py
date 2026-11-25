@@ -1,5 +1,3 @@
-"""End-to-end through the MCP protocol (in-process client), with the fake LLM."""
-
 import json
 
 import pytest
@@ -30,9 +28,9 @@ async def test_scrape_tables_without_llm(site):
     async with Client(mcp) as c:
         out = _json(await c.call_tool("scrape_tables", {"url": f"{site}/table.html", "dataset": "countries"}))
         assert out["table_used"] == 1 and out["saved"]["rows"] == 8
-        assert out["columns"]["population"] == "float"  # "114,535,772[a]" parsed, footnote dropped
-        assert out["columns"]["census_date"] == "date"  # "1 Jul 2025" is a date, not 172025
-        assert out["columns"]["source"] == "str"  # "Official estimate[3]" stays text
+        assert out["columns"]["population"] == "float"
+        assert out["columns"]["census_date"] == "date"
+        assert out["columns"]["source"] == "str"
         stat = _json(await c.call_tool("run_stat", {"dataset": "countries", "operation":
                                                     {"op": "groupby", "by": ["continent"], "metric": "population", "aggs": ["sum"]}}))
         top = stat["result"]["rows"][0]
@@ -51,18 +49,15 @@ async def test_full_pipeline_with_pagination_and_verification(site, fake_llm):
         r = await c.call_tool("scrape", {"urls": [f"{site}/shop.html"], "mode": "ecommerce", "dataset": "laptops",
                                          "max_pages_per_source": 2, "analyze": True})
         out = _json(r)
-        # 6 products on page 1 + 3 on page 2 (pagination followed) + 1 hallucination on page 1
         assert out["rows_added"] == 10 and len(out["sources"]) == 2
         assert out["quality"]["low_grounding_rows"] == 1
         trace = " ".join(out["agent_trace"])
         assert "planner: skipped" in trace and "following 1 next-page link" in trace
-        # derived metric computed by pandas, not the LLM
         rows = _json(await c.call_tool("query_sql", {"sql": "select name, discount_pct, _grounding from laptops order by name"}))["rows"]
         acme = next(r for r in rows if r["name"] == "Acme Book 14")
         assert acme["discount_pct"] == 12.5 and acme["_grounding"] == 1.0
         fake = next(r for r in rows if r["name"] == "Quantum Hyperbook X")
         assert fake["_grounding"] == 0.0
-        # analysis: filters out the hallucination, numbers come from pandas, prose is audited
         a = out["analysis"]
         assert a["rows_analysed"] == 9 and a["rows_total"] == 10
         groups = {g["brand"]: g for g in a["operations"][0]["result"]["rows"]}
@@ -123,6 +118,6 @@ async def test_refusing_sources_are_replaced_by_backups(site, fake_llm, monkeypa
                                                     "dataset": "backup_test"}))
     by_url = {s["url"].rsplit("/", 1)[1]: s for s in out["sources"]}
     assert not by_url["forbidden"]["ok"] and not by_url["missing.html"]["ok"]
-    assert by_url["shop.html"]["ok"] and by_url["shop_page2.html"]["ok"]  # the two backups filled in
-    assert "table.html" not in by_url                                       # third backup not needed
+    assert by_url["shop.html"]["ok"] and by_url["shop_page2.html"]["ok"]
+    assert "table.html" not in by_url
     assert out["rows_added"] == 10 and "+ 2 backup(s)" in " ".join(out["agent_trace"])

@@ -35,8 +35,8 @@ def test_prices_with_trailing_zeros_are_found():
     source = normalise_source("The Past Never Ends £56.50 | Roger Ackroyd £44.10 | Gift card AED 1,299.00")
     for value in (56.5, 44.1, 1299.0):
         assert grounding_score({"price": value}, get_mode("ecommerce"), source) == 1.0
-    assert grounding_score({"price": 56.0}, get_mode("ecommerce"), source) == 0.0  # 56 is not 56.50
-    assert grounding_score({"price": 5.5}, get_mode("ecommerce"), source) == 0.0  # no false hit inside 56.50
+    assert grounding_score({"price": 56.0}, get_mode("ecommerce"), source) == 0.0
+    assert grounding_score({"price": 5.5}, get_mode("ecommerce"), source) == 0.0
 
 
 def test_abbreviated_salaries_are_found():
@@ -44,14 +44,14 @@ def test_abbreviated_salaries_are_found():
     jobs = get_mode("jobs")
     for value in (150000.0, 200000.0, 119800.0, 132000.0, 1200000.0):
         assert grounding_score({"salary_min": value}, jobs, source) == 1.0, value
-    for value in (15000.0, 1500000.0, 120000.0):  # not on the page
+    for value in (15000.0, 1500000.0, 120000.0):
         assert grounding_score({"salary_min": value}, jobs, source) == 0.0, value
 
 
 def test_identity_dedupe_for_reposted_jobs():
     a = {"title": "BI Data Analyst", "company": "Openx", "location": "US", "salary_min": 93500.0, "url": "https://b/1"}
-    b = {**a, "url": "https://b/2", "title": "BI data analyst "}  # same job, new ID, different spacing/case
-    c = {**a, "location": "Canada", "url": "https://b/3"}       # different location: a different posting
+    b = {**a, "url": "https://b/2", "title": "BI data analyst "}
+    c = {**a, "location": "Canada", "url": "https://b/3"}
     out, dropped = dedupe([a, b, c], get_mode("jobs").dedupe_on)
     assert dropped == 1 and [r["url"] for r in out] == ["https://b/1", "https://b/3"]
-    assert dedupe([a, b], None)[1] == 0  # without identity fields, different URLs stay distinct
+    assert dedupe([a, b], None)[1] == 0

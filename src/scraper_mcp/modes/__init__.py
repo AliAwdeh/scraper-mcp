@@ -1,5 +1,3 @@
-"""Registry of specialist modes."""
-
 from __future__ import annotations
 
 from .base import COMMON_RULES, Mode, build_record_model, extraction_model, parse_field_spec

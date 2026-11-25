@@ -1,5 +1,3 @@
-"""Shared test setup: an isolated data dir, a local fixture website, and a scripted fake LLM."""
-
 from __future__ import annotations
 
 import os
@@ -10,24 +8,22 @@ from functools import lru_cache, partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-# Configure before any scraper_mcp import: isolated storage, no politeness delay, local site allowed,
-# and no real API key (the LLM is replaced by a fake in the pipeline tests).
 os.environ["DATA_DIR"] = tempfile.mkdtemp(prefix="scraper-mcp-test-")
 os.environ["ALLOW_PRIVATE_NETWORKS"] = "true"
 os.environ["REQUEST_DELAY"] = "0"
 os.environ["OPENROUTER_API_KEY"] = ""
 
-import pytest  # noqa: E402
+import pytest
 
 SITE = Path(__file__).parent / "fixtures" / "site"
 
 
 class _QuietHandler(SimpleHTTPRequestHandler):
-    def log_message(self, *args):  # keep test output clean
+    def log_message(self, *args):
         pass
 
     def do_GET(self):
-        if self.path == "/forbidden":  # a site that refuses bots, like Wikipedia without a contact UA
+        if self.path == "/forbidden":
             body = b"Please respect our robot policy when crawling us."
             self.send_response(403)
             self.send_header("Content-Type", "text/plain")
@@ -49,7 +45,6 @@ def site() -> str:
 
 @pytest.fixture(autouse=True)
 def fresh_runtime():
-    """Each test gets its own event loop, so it also gets its own HTTP client / browser."""
     from scraper_mcp import server
 
     server._runtime = None
@@ -59,8 +54,6 @@ def fresh_runtime():
 
 @lru_cache(maxsize=1)
 def chromium_available() -> bool:
-    """True only if the Chromium build that *this* Playwright version needs can actually launch
-    (always the case in the Docker image; usually not on a dev laptop)."""
     try:
         from playwright.sync_api import sync_playwright
 
@@ -70,8 +63,6 @@ def chromium_available() -> bool:
     except Exception:
         return False
 
-
-# ----------------------------------------------------------------------------- fake LLM
 
 _CARD = re.compile(
     r"\[(?P<name>[^\]]+)\]\((?P<url>[^)]+)\)\s*\|\s*(?P<brand>\w+)\s*\|\s*AED (?P<price>[\d,]+)"
@@ -84,9 +75,6 @@ def _num(text: str | None) -> float | None:
 
 
 class FakeLLM:
-    """Deterministic stand-in for the model: parses the fixture shop like a specialist would,
-    hallucinates exactly one product on page 1 (to test the Verifier), and plans a fixed analysis."""
-
     def __init__(self):
         self.calls: list[str] = []
 
@@ -109,7 +97,7 @@ class FakeLLM:
                 records.append({"name": "Quantum Hyperbook X", "brand": "Quantum", "price": 99999.0,
                                 "currency": "AED", "rating": 5.0, "review_count": 31337, "url": None})
             return schema(page_kind="listing", records=records, next_page_url=None)
-        if agent == "source_selector":  # rank every result in order; the pipeline decides the backups
+        if agent == "source_selector":
             return roles.SourceSelection(chosen=[roles.SourceChoice(index=i, reason="test")
                                                  for i in range(user.count("\n[") + 1)])
         if agent == "analyst":

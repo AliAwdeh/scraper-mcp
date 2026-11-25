@@ -40,7 +40,6 @@ build-backend = "hatchling.build"
 packages = ["src/scraper_mcp"]
 
 [tool.uv]
-# Supply-chain guard: only resolve releases that have been public for 2+ weeks.
 exclude-newer = "2026-11-07T00:00:00Z"
 
 [tool.pytest.ini_options]

@@ -1,5 +1,3 @@
-"""Being a good citizen on the web: robots.txt, per-domain rate limiting, and an SSRF guard."""
-
 from __future__ import annotations
 
 import asyncio
@@ -13,7 +11,7 @@ import httpx
 
 
 class BlockedURL(ValueError):
-    """The URL is not allowed (bad scheme, private network, robots.txt)."""
+    pass
 
 
 def _is_private_ip(ip: str) -> bool:
@@ -29,11 +27,6 @@ def _is_private_ip(ip: str) -> bool:
 
 
 async def check_url_allowed(url: str, allow_private: bool) -> None:
-    """Reject non-HTTP schemes and (unless allowed) hosts that resolve to private addresses.
-
-    This stops the server from being used to probe the network it runs in,
-    e.g. cloud metadata endpoints such as 169.254.169.254.
-    """
     parts = urlsplit(url)
     if parts.scheme not in ("http", "https"):
         raise BlockedURL(f"only http(s) URLs are allowed, got {parts.scheme or 'no scheme'!r}")
@@ -55,7 +48,6 @@ async def check_url_allowed(url: str, allow_private: bool) -> None:
 
 
 def host_is_private_literal(host: str) -> bool:
-    """Cheap check (no DNS) used by the browser's request filter."""
     if host.lower() in ("localhost",) or host.lower().endswith(".localhost"):
         return True
     try:
@@ -65,9 +57,6 @@ def host_is_private_literal(host: str) -> bool:
 
 
 class RobotsCache:
-    """Fetches and caches robots.txt per origin, following RFC 9309:
-    4xx (no file) -> everything allowed; 5xx or unreachable -> everything disallowed."""
-
     def __init__(self, client: httpx.AsyncClient, user_agent: str, ttl: float = 3600):
         self._client = client
         self._ua = user_agent
@@ -76,7 +65,6 @@ class RobotsCache:
         self._locks: dict[str, asyncio.Lock] = {}
 
     async def _get(self, origin: str) -> tuple[RobotFileParser | None, bool]:
-        """Returns (parser, allow_all). parser None + allow_all False means disallow all."""
         now = time.monotonic()
         cached = self._cache.get(origin)
         if cached and now - cached[0] < self._ttl:
@@ -119,8 +107,6 @@ class RobotsCache:
 
 
 class DomainRateLimiter:
-    """Guarantees a minimum gap between two requests to the same domain."""
-
     def __init__(self, default_delay: float):
         self._default = default_delay
         self._last: dict[str, float] = {}

@@ -1,5 +1,3 @@
-"""The structured-output plumbing, with a fake chat model (no network)."""
-
 import json
 
 import pytest

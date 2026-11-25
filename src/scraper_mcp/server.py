@@ -1,5 +1,3 @@
-"""The MCP server: the tools a harness (Claude, ChatGPT, any MCP client) can call."""
-
 from __future__ import annotations
 
 import asyncio
@@ -73,9 +71,6 @@ def _json(data: Any) -> str:
 
 
 def friendly_errors(fn):
-    """Turn unexpected exceptions into readable tool errors, so the harness's LLM can react to them
-    (the SDK otherwise reports only 'Error executing tool <name>')."""
-
     @functools.wraps(fn)
     async def wrapper(*args, **kwargs):
         try:
@@ -106,8 +101,6 @@ ModeArg = Annotated[str, Field(description=f"Specialist: {', '.join(MODE_NAMES)}
 RenderArg = Annotated[Literal["auto", "static", "browser"], Field(
     description="auto = plain HTTP, switching to headless Chromium if the page needs JavaScript")]
 
-
-# ============================================================================ discovery
 
 @mcp.tool(annotations=READ_ONLY)
 def list_modes() -> dict:
@@ -151,8 +144,6 @@ async def fetch_page(
             "text_chars_total": cp.text_chars, "truncated": cp.truncated, "markdown": cp.text}
 
 
-# ============================================================================ deterministic table scraping
-
 def _column_name(raw: Any, position: int) -> str:
     text = str(raw)
     text = re.sub(r"\+\s*/\s*[-\u2212]", " plus_minus ", text)
@@ -182,7 +173,6 @@ _CURRENCY_AFFIX = re.compile(r"^(?:[$€£¥₹]|AED|USD|EUR|GBP|SAR)\s*|\s*(?:A
 
 
 def _parse_number(value: Any) -> float | None:
-    """Strict: '1,234.5', '$99', '17.3%', '-2' parse; '13 Nov 2025' or 'Official estimate' do not."""
     if value is None or (isinstance(value, float) and pd.isna(value)):
         return None
     if isinstance(value, (int, float)):
@@ -253,8 +243,6 @@ async def scrape_tables(
     return {"saved": saved, "table_used": idx, "tables_found": summaries,
             "columns": types, "sample": _sample_rows(df, 5)}
 
-
-# ============================================================================ the agent pipeline
 
 async def _run(ctx: Context, tool: str, inputs: dict) -> tuple[dict, llm.RunUsage, str]:
     rt = runtime()
@@ -406,8 +394,6 @@ async def scrape(
     return _pipeline_response(state, usage, run_id)
 
 
-# ============================================================================ datasets
-
 @mcp.tool(annotations=READ_ONLY)
 @friendly_errors
 async def list_datasets() -> dict:
@@ -458,8 +444,6 @@ async def export_dataset(
         out["content_truncated"] = len(text) > 200_000
     return out
 
-
-# ============================================================================ analysis
 
 @mcp.tool(annotations=READ_ONLY, structured_output=False)
 @friendly_errors
@@ -565,8 +549,6 @@ async def chart(
     return [TextContent(type="text", text=_json({"dataset": meta["name"], "rows_used": len(df), "chart": spec.model_dump()})),
             Image(data=png, format="png").to_image_content()]
 
-
-# ============================================================================ telemetry
 
 @mcp.tool(annotations=READ_ONLY)
 @friendly_errors

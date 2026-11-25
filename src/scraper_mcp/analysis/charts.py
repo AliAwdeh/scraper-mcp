@@ -1,5 +1,3 @@
-"""Charts rendered with matplotlib and returned to the harness as PNG images."""
-
 from __future__ import annotations
 
 import io
@@ -8,13 +6,13 @@ from typing import Literal
 import matplotlib
 
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
-import numpy as np  # noqa: E402
-import pandas as pd  # noqa: E402
-from pydantic import BaseModel, Field  # noqa: E402
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from pydantic import BaseModel, Field
 
-from ..storage import parse_list_cell  # noqa: E402
-from .ops import OpError, _cat, _col, _num  # noqa: E402
+from ..storage import parse_list_cell
+from .ops import OpError, _cat, _col, _num
 
 
 class ChartSpec(BaseModel):
@@ -53,7 +51,7 @@ def render_chart(df: pd.DataFrame, spec: ChartSpec, list_columns: list[str] | No
                     s = s.map(parse_list_cell).explode().dropna()
                 series = _cat(s).value_counts().head(spec.top_n)
                 ax.set_xlabel("count")
-            if _numeric_labels(series.index):  # ordinal categories (ratings, years): natural order
+            if _numeric_labels(series.index):
                 series = series.sort_index(key=lambda idx: idx.astype(str).astype(float))
             series = series.iloc[::-1]
             ax.barh([str(i)[:40] for i in series.index], series.values, color="#4C72B0")
@@ -107,7 +105,7 @@ def render_chart(df: pd.DataFrame, spec: ChartSpec, list_columns: list[str] | No
                 raise OpError("box needs y (numeric) and x (group)")
             data = pd.DataFrame({"g": _cat(_col(df, spec.x)), "y": _num(df, spec.y)}).dropna()
             groups = list(data["g"].value_counts().head(spec.top_n).index)
-            if _numeric_labels(groups):  # ratings, years, sizes: show them in order
+            if _numeric_labels(groups):
                 groups.sort(key=lambda g: float(str(g)))
             values = [data.loc[data["g"] == g, "y"].to_numpy() for g in groups]
             ax.boxplot(values, tick_labels=[str(g)[:20] for g in groups], orientation="vertical")

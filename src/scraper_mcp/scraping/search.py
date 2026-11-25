@@ -1,5 +1,3 @@
-"""Web search through DuckDuckGo (the `ddgs` package): free, no API key."""
-
 from __future__ import annotations
 
 import asyncio
@@ -12,7 +10,6 @@ from ddgs.exceptions import DDGSException, RatelimitException, TimeoutException
 
 log = logging.getLogger(__name__)
 
-# Sites that block scrapers or are not useful as HTML sources.
 SKIP_DOMAINS = (
     "youtube.com", "youtu.be", "facebook.com", "instagram.com", "tiktok.com", "x.com", "twitter.com",
     "linkedin.com", "pinterest.com", "reddit.com", "quora.com",

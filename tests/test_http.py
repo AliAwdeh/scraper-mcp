@@ -1,5 +1,3 @@
-"""The HTTP transport: health check, bearer auth, DNS-rebinding protection."""
-
 from starlette.testclient import TestClient
 
 from scraper_mcp.config import Settings

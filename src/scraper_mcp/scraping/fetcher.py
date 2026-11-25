@@ -1,5 +1,3 @@
-"""Fetch a URL politely: static HTTP first, headless browser when the page needs JavaScript."""
-
 from __future__ import annotations
 
 import asyncio
@@ -18,8 +16,6 @@ log = logging.getLogger(__name__)
 
 _TEXT_TYPES = ("text/html", "application/xhtml", "text/plain", "application/json", "application/ld+json",
                "text/xml", "application/xml", "application/rss", "application/atom")
-# Note: a refusal (403 / 429 / 503) is reported, never retried in a browser. The headless browser is for
-# pages that need JavaScript to render, not for getting past a site that said no.
 
 
 @dataclass
@@ -108,7 +104,7 @@ class Fetcher:
             res.error = str(exc)
         except httpx.HTTPError as exc:
             res.error = f"{type(exc).__name__}: {exc}" if str(exc) else type(exc).__name__
-        except Exception as exc:  # never let one bad page kill a whole run
+        except Exception as exc:
             log.exception("fetch failed for %s", url)
             res.error = f"{type(exc).__name__}: {exc}"
         finally:
@@ -117,7 +113,7 @@ class Fetcher:
 
     async def _static(self, url: str, res: FetchResult) -> None:
         current = url
-        for _ in range(6):  # follow up to 5 redirects, re-checking each hop against the SSRF guard
+        for _ in range(6):
             async with self.client.stream("GET", current) as resp:
                 if resp.is_redirect and resp.headers.get("location"):
                     current = str(resp.url.join(resp.headers["location"]))
@@ -150,7 +146,6 @@ class Fetcher:
         res.error = "too many redirects"
 
     def _needs_browser(self, res: FetchResult) -> bool:
-        """Only a successfully served page that has no readable content without JavaScript."""
         return res.error is None and res.is_html and looks_js_rendered(res.html)
 
     async def _render(self, url: str, res: FetchResult) -> None:

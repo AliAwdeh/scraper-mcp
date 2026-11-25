@@ -1,9 +1,3 @@
-"""The LLM client: Claude (or any model) through OpenRouter, driven by LangChain.
-
-Every agent goes through `structured()` (typed output) or `text()` (free text).
-Token usage and cost are recorded on the current run so the server can report them.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -66,9 +60,7 @@ def _model(model_name: str) -> ChatOpenAI:
         timeout=s.llm_timeout,
         max_retries=s.llm_max_retries,
         default_headers=headers,
-        # Ask OpenRouter to include token cost in the usage block.
         extra_body={"usage": {"include": True}},
-        # No temperature: Claude 5.x models on OpenRouter do not accept one.
     )
 
 
@@ -97,8 +89,6 @@ def _record(raw, agent: str) -> None:
 
 
 def _portable(node):
-    """Strip JSON-schema features some providers reject: OpenAPI 'discriminator', '$defs'
-    leftovers after dereferencing, and 'oneOf' (rewritten as the more widely supported 'anyOf')."""
     if isinstance(node, dict):
         out = {}
         for key, value in node.items():
@@ -124,11 +114,6 @@ def _methods() -> list[str]:
 
 
 async def structured(schema: type[T], system: str, user: str, *, agent: str, fast: bool = False) -> T:
-    """Call the model and return an instance of `schema`.
-
-    Tries tool calling first and JSON-schema output second, so it keeps working
-    across OpenRouter models that support only one of the two.
-    """
     _require_key()
     s = get_settings()
     model = _model(s.fast_model if fast else s.llm_model)
@@ -139,7 +124,7 @@ async def structured(schema: type[T], system: str, user: str, *, agent: str, fas
         try:
             chain = model.with_structured_output(json_schema, method=method, include_raw=True)
             out = await chain.ainvoke(messages)
-        except Exception as exc:  # provider rejected this method; try the next one
+        except Exception as exc:
             log.warning("%s: structured call via %s failed: %s", agent, method, exc)
             last_error = exc
             continue
@@ -149,7 +134,7 @@ async def structured(schema: type[T], system: str, user: str, *, agent: str, fas
             last_error = out.get("parsing_error") or LLMError("model returned no parseable output")
             log.warning("%s: could not parse output via %s: %s", agent, method, last_error)
             continue
-        try:  # the provider saw a simplified schema; the real model enforces every rule here
+        try:
             return schema.model_validate(parsed)
         except ValidationError as exc:
             last_error = exc
@@ -164,6 +149,6 @@ async def text(system: str, user: str, *, agent: str, fast: bool = False) -> str
     msg = await model.ainvoke([SystemMessage(content=system), HumanMessage(content=user)])
     _record(msg, agent)
     content = msg.content
-    if isinstance(content, list):  # some providers return content blocks
+    if isinstance(content, list):
         content = "".join(part.get("text", "") if isinstance(part, dict) else str(part) for part in content)
     return str(content).strip()

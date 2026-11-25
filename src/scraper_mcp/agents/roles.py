@@ -1,13 +1,3 @@
-"""The LLM agents. Each one has a narrow job, a typed output and its own prompt.
-
-    Planner          request -> mode, search queries, analysis question
-    Source Selector  search results -> the pages worth scraping
-    Schema Designer  (generic mode, no fields given) page sample -> record fields
-    Specialists      page text -> typed records (one specialist per mode)
-    Analyst          dataset profile + question -> which statistics to run (never the numbers)
-    Reporter         computed results -> short findings, audited against the results
-"""
-
 from __future__ import annotations
 
 import json
@@ -21,10 +11,8 @@ from ..analysis.charts import ChartSpec
 from ..analysis.ops import OPERATION_HELP, Filter, Operation
 from ..modes import COMMON_RULES, MODES, Mode, describe_modes, extraction_model
 
-ModeName = Literal[tuple(["generic", *MODES.keys()])]  # type: ignore[valid-type]
+ModeName = Literal[tuple(["generic", *MODES.keys()])]
 
-
-# ----------------------------------------------------------------------------- Planner
 
 class ResearchPlan(BaseModel):
     mode: ModeName = Field(description="The specialist best suited to the request")
@@ -65,8 +53,6 @@ Rules:
     return plan
 
 
-# ----------------------------------------------------------------------------- Source Selector
-
 class SourceChoice(BaseModel):
     index: int = Field(description="Index of the search result")
     reason: str = Field(description="Why this page is likely to contain many relevant records")
@@ -77,8 +63,6 @@ class SourceSelection(BaseModel):
 
 
 async def select_sources(request: str, mode: str, results: list[dict], max_sources: int) -> list[int]:
-    """Returns indices ranked best first: the first `max_sources` are scraped, the rest are backups
-    used in place of any site that refuses or fails."""
     listing = "\n".join(f"[{i}] {r['title']}\n    {r['url']}\n    {r['snippet']}" for i, r in enumerate(results))
     wanted = max_sources * 2
     system = f"""You are the Source Selector. Rank up to {wanted} search results to scrape for a "{mode}"
@@ -99,8 +83,6 @@ Indices must come from the list."""
             seen.append(choice.index)
     return seen[:wanted]
 
-
-# ----------------------------------------------------------------------------- Schema Designer
 
 class FieldSpec(BaseModel):
     name: str = Field(description="snake_case field name")
@@ -124,8 +106,6 @@ record fields to extract, one record per repeated item on the page (product, row
     return [f"{f.name}:{f.type}:{f.description}" for f in out.fields[:12]]
 
 
-# ----------------------------------------------------------------------------- Specialists
-
 async def extract_chunk(mode: Mode, *, focus: str, url: str, title: str, description: str, json_ld: str,
                         chunk: str, chunk_no: int, chunks: int) -> BaseModel:
     schema = extraction_model(mode.record_model)
@@ -140,8 +120,6 @@ async def extract_chunk(mode: Mode, *, focus: str, url: str, title: str, descrip
     parts.append(f"Page text (part {chunk_no} of {chunks}):\n{chunk}")
     return await llm.structured(schema, system, "\n\n".join(parts), agent=f"specialist:{mode.name}")
 
-
-# ----------------------------------------------------------------------------- Analyst
 
 class AnalysisPlan(BaseModel):
     rationale: str = Field(description="One or two sentences: why these operations answer the question")
@@ -176,8 +154,6 @@ Rules:
     plan.operations = plan.operations[:6]
     return plan
 
-
-# ----------------------------------------------------------------------------- Reporter
 
 async def write_report(question: str, context: dict, results: list[dict]) -> str:
     system = """You are the Reporter. Write the findings for the user using ONLY the numbers in RESULTS.

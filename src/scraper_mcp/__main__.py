@@ -1,5 +1,3 @@
-"""Entry point: `scraper-mcp --transport stdio|http`."""
-
 from __future__ import annotations
 
 import argparse
@@ -17,7 +15,6 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=s.mcp_port)
     args = parser.parse_args()
 
-    # stdout belongs to the MCP protocol in stdio mode: log to stderr only.
     logging.basicConfig(level=logging.INFO, stream=sys.stderr,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     for noisy in ("httpx", "httpx2", "httpcore", "primp", "ddgs", "matplotlib"):

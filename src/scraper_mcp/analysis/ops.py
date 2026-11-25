@@ -1,6 +1,3 @@
-"""Deterministic statistics. Every number the server reports is computed here, by pandas,
-numpy and scipy, never by the LLM. The Analyst agent only *chooses* operations from this menu."""
-
 from __future__ import annotations
 
 import math
@@ -123,14 +120,11 @@ OPERATION_HELP = {
 }
 
 
-# ----------------------------------------------------------------------------- helpers
-
 class OpError(ValueError):
     pass
 
 
 def _clean(value: Any) -> Any:
-    """Make numpy / pandas values JSON-friendly and round floats sensibly."""
     if isinstance(value, dict):
         return {str(k): _clean(v) for k, v in value.items()}
     if isinstance(value, (list, tuple)):
@@ -143,7 +137,7 @@ def _clean(value: Any) -> Any:
         f = float(value)
         if math.isnan(f) or math.isinf(f):
             return None
-        if f != 0 and abs(f) < 1e-3:  # keep tiny values (p-values) meaningful: 3 significant figures
+        if f != 0 and abs(f) < 1e-3:
             return float(f"{f:.3g}")
         return round(f, 2) if abs(f) >= 100 else round(f, 4)
     if isinstance(value, (pd.Timestamp,)):
@@ -223,8 +217,6 @@ def apply_filters(df: pd.DataFrame, filters: list[Filter]) -> pd.DataFrame:
         df = df[mask.fillna(False).astype(bool)]
     return df
 
-
-# ----------------------------------------------------------------------------- operations
 
 def _describe(df: pd.DataFrame, op: Describe, _lists) -> dict:
     cols = op.columns or numeric_columns(df)
@@ -445,5 +437,5 @@ def run_operation(df: pd.DataFrame, op: BaseModel, list_columns: list[str] | Non
         return {"op": op.op, "params": params, "result": _clean(result)}
     except OpError as exc:
         return {"op": op.op, "params": params, "error": str(exc)}
-    except Exception as exc:  # report, do not crash the whole analysis
+    except Exception as exc:
         return {"op": op.op, "params": params, "error": f"{type(exc).__name__}: {exc}"}

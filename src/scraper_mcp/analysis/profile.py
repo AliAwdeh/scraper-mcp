@@ -1,5 +1,3 @@
-"""Dataset profiling: what the Analyst agent (and the user) sees before choosing statistics."""
-
 from __future__ import annotations
 
 import pandas as pd

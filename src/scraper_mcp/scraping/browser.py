@@ -1,5 +1,3 @@
-"""Headless Chromium (Playwright) for pages that only render with JavaScript."""
-
 from __future__ import annotations
 
 import asyncio
@@ -31,12 +29,10 @@ class BrowserPool:
                 from playwright.async_api import async_playwright
 
                 self._pw = await async_playwright().start()
-                # /dev/shm is tiny in containers; let Chromium use /tmp instead.
                 self._browser = await self._pw.chromium.launch(headless=True, args=["--disable-dev-shm-usage"])
         return self._browser
 
     async def render(self, url: str) -> tuple[int | None, str, str]:
-        """Load `url` in a fresh browser context. Returns (status, final_url, html)."""
         browser = await self._ensure()
         async with self._sem:
             context = await browser.new_context(user_agent=self._ua, locale="en-US")
@@ -54,12 +50,10 @@ class BrowserPool:
 
                 await page.route("**/*", _filter)
                 response = await page.goto(url, wait_until="domcontentloaded", timeout=self._timeout_ms)
-                # Give client-side rendering a moment; do not fail if the network never idles.
                 try:
                     await page.wait_for_load_state("networkidle", timeout=min(8000, self._timeout_ms))
                 except Exception:
                     pass
-                # Nudge lazy-loaded lists.
                 try:
                     await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
                     await page.wait_for_timeout(600)

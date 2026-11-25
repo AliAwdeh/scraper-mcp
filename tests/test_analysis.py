@@ -31,7 +31,7 @@ def run(df, spec, lists=("skills",)):
 def test_compare_groups_detects_real_difference(df):
     r = run(df, {"op": "compare_groups", "group_column": "brand", "value_column": "price"})
     p = r["tests"]["welch_t_test"]["p_value"]
-    assert r["significant_at_0.05"] and 0 < p < 1e-6  # tiny p-values keep significant figures, never 0.0
+    assert r["significant_at_0.05"] and 0 < p < 1e-6
     assert abs(r["tests"]["cohens_d"]) > 2
 
 

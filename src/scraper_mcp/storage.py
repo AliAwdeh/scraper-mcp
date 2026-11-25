@@ -1,9 +1,3 @@
-"""DuckDB storage: one table per dataset, plus run and fetch telemetry.
-
-A connection is opened per operation and closed right away, so a stdio container and
-an HTTP container can share the same /data volume without holding the file lock.
-"""
-
 from __future__ import annotations
 
 import json
@@ -80,7 +74,7 @@ class Storage:
                 try:
                     con = duckdb.connect(str(self.path))
                     break
-                except duckdb.IOException as exc:  # another process holds the write lock
+                except duckdb.IOException as exc:
                     if time.monotonic() > deadline:
                         raise StorageError(f"database is busy (locked by another process): {exc}") from exc
                     time.sleep(0.2)
@@ -89,7 +83,6 @@ class Storage:
             finally:
                 con.close()
 
-    # ------------------------------------------------------------------ datasets
     def exists(self, name: str) -> bool:
         with self.conn() as c:
             return bool(c.execute("SELECT count(*) FROM datasets WHERE name = ?", [name]).fetchone()[0])
@@ -171,7 +164,6 @@ class Storage:
             raise StorageError("format must be csv, json or parquet")
         return path
 
-    # ------------------------------------------------------------------ telemetry
     def log_run(self, run: dict) -> None:
         cols = ["run_id", "tool", "request", "mode", "dataset", "started_at", "finished_at", "status", "error",
                 "pages_attempted", "pages_ok", "records_extracted", "records_kept", "low_grounding", "llm_calls",
@@ -194,14 +186,7 @@ class Storage:
         with self.conn() as c:
             return {view: c.execute(f"SELECT * FROM {table}").df() for view, table in TELEMETRY_VIEWS.items()}
 
-    # ------------------------------------------------------------------ read-only SQL
     def run_sql(self, sql: str, max_rows: int = 200, timeout_s: float = 15.0) -> pd.DataFrame:
-        """Run a read-only query in an isolated in-memory DuckDB.
-
-        Only the datasets named in the query are copied in. File, network and extension
-        access are disabled and the configuration is locked, so the query cannot read
-        files, environment variables or the main database.
-        """
         statement = _strip_sql(sql)
         if not _SQL_START.match(statement):
             raise StorageError("only read-only queries are allowed (SELECT / WITH / FROM / SUMMARIZE / DESCRIBE)")

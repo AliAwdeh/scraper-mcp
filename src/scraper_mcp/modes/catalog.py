@@ -1,5 +1,3 @@
-"""The built-in specialist modes."""
-
 from __future__ import annotations
 
 from datetime import date
@@ -10,8 +8,6 @@ import pandas as pd
 from pydantic import BaseModel, Field
 
 from .base import Mode
-
-# ----------------------------------------------------------------------------- e-commerce
 
 
 class Product(BaseModel):
@@ -52,8 +48,6 @@ ECOMMERCE = Mode(
     inferred=frozenset({"category", "in_stock", "rating"}),
     keywords=["price", "buy", "shop", "product", "deal", "cheapest", "store", "amazon", "noon"],
 )
-
-# ----------------------------------------------------------------------------- jobs
 
 
 class JobPosting(BaseModel):
@@ -104,8 +98,6 @@ JOBS = Mode(
     keywords=["job", "jobs", "hiring", "career", "vacancy", "salary", "engineer", "developer", "position"],
 )
 
-# ----------------------------------------------------------------------------- news
-
 
 class Article(BaseModel):
     headline: str | None = Field(None, description="Headline")
@@ -138,8 +130,6 @@ NEWS = Mode(
     dedupe_on=("headline", "source"),
     keywords=["news", "article", "headline", "press", "blog", "report", "latest"],
 )
-
-# ----------------------------------------------------------------------------- real estate
 
 
 class PropertyListing(BaseModel):
@@ -182,8 +172,6 @@ REAL_ESTATE = Mode(
     keywords=["rent", "apartment", "villa", "property", "real estate", "house", "flat", "bedroom"],
 )
 
-# ----------------------------------------------------------------------------- reviews
-
 
 class Review(BaseModel):
     subject: str | None = Field(None, description="What is being reviewed (product, place, service)")
@@ -211,8 +199,6 @@ REVIEWS = Mode(
     dedupe_on=("subject", "title", "text", "rating"),
     keywords=["review", "reviews", "rating", "opinion", "feedback", "complaints"],
 )
-
-# ----------------------------------------------------------------------------- research papers
 
 
 class Paper(BaseModel):

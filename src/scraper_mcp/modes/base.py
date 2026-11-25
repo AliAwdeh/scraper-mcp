@@ -1,5 +1,3 @@
-"""A *mode* is a specialist: a record schema, extraction rules, and default analysis."""
-
 from __future__ import annotations
 
 import re
@@ -23,10 +21,7 @@ class Mode:
     use_article_extractor: bool = False
     derive: Callable[[pd.DataFrame], pd.DataFrame] | None = None
     keywords: list[str] = field(default_factory=list)
-    # Fields the specialist is expected to *infer* (summaries, sentiment, tags), so they are
-    # excluded from the grounding check that verifies values against the page text.
     inferred: frozenset[str] = frozenset()
-    # Fields that identify one real-world item, for de-duplication (None = all fields, URL included).
     dedupe_on: tuple[str, ...] | None = None
 
     def fields(self) -> list[dict]:
@@ -40,7 +35,6 @@ class Mode:
 
 
 def _type_name(annotation: Any) -> str:
-    """Map a pydantic annotation to a coarse storage type: str/int/float/bool/date/list/category."""
     origin = typing.get_origin(annotation)
     args = typing.get_args(annotation)
     if origin in (typing.Union, types.UnionType):
@@ -76,8 +70,6 @@ Extraction rules (apply to every field):
 """
 
 
-# ----------------------------------------------------------------------------- generic mode
-
 _TYPE_MAP: dict[str, Any] = {
     "str": str, "string": str, "text": str,
     "int": int, "integer": int,
@@ -91,7 +83,6 @@ _FIELD_NAME = re.compile(r"[^a-z0-9_]+")
 
 
 def parse_field_spec(spec: str) -> tuple[str, Any, str]:
-    """'price:float:price in local currency' -> ('price', float, 'price in local currency')."""
     parts = [p.strip() for p in spec.split(":", 2)]
     name = _FIELD_NAME.sub("_", parts[0].lower()).strip("_") or "field"
     if name[0].isdigit():

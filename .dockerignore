@@ -6,3 +6,4 @@ data
 .git
 *.pyc
 configs
+*.zip

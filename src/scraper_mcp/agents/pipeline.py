@@ -1,12 +1,3 @@
-"""The multi-agent pipeline, orchestrated with LangGraph.
-
-    START -> planner -> searcher -> source_selector -> fetcher -> specialists -> verifier
-                 \\______(URLs given)_______________/^                              |
-                                                     \\_____ next page (pagination)__/
-                                                                                     v
-                                                                  store -> analyst -> END
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -55,7 +46,6 @@ class Runtime:
 
 
 class PipelineState(TypedDict, total=False):
-    # inputs
     run_id: str
     request: str
     mode: str
@@ -67,7 +57,6 @@ class PipelineState(TypedDict, total=False):
     render: str
     analyze: bool
     question: str | None
-    # working state
     plan: dict
     search_results: list[dict]
     frontier: list[dict]
@@ -78,7 +67,6 @@ class PipelineState(TypedDict, total=False):
     quality: dict
     store: dict
     analysis: dict
-    # accumulated
     visited: Annotated[list[str], operator.add]
     records: Annotated[list[dict], operator.add]
     fetch_log: Annotated[list[dict], operator.add]
@@ -93,7 +81,6 @@ def build_graph(rt: Runtime):
     def mode_of(state: PipelineState):
         return get_mode(state["plan"]["mode"], state.get("fields"))
 
-    # ------------------------------------------------------------------ planner
     async def planner(state: PipelineState) -> dict:
         seeds = state.get("seed_urls") or []
         forced = None if state.get("mode") in (None, "", "auto") else state["mode"]
@@ -112,7 +99,6 @@ def build_graph(rt: Runtime):
         line = f"planner: mode={rp.mode}" + (f", queries={rp.search_queries}" if rp.search_queries else "")
         return {"plan": plan, "fields": fields, "trace": [line]}
 
-    # ------------------------------------------------------------------ searcher
     async def searcher(state: PipelineState) -> dict:
         queries = state["plan"].get("search_queries") or [state.get("request", "")]
         await emit(f"Searcher: running {len(queries)} web search(es)")
@@ -130,7 +116,6 @@ def build_graph(rt: Runtime):
         return {"search_results": results[:20], "errors": errors,
                 "trace": [f"searcher: {len(results)} unique results from {len(queries)} queries"]}
 
-    # ------------------------------------------------------------------ source selector
     async def source_selector(state: PipelineState) -> dict:
         results = state.get("search_results") or []
         n = state["max_sources"]
@@ -150,7 +135,6 @@ def build_graph(rt: Runtime):
             line += f" + {len(backups)} backup(s)"
         return {"frontier": frontier, "backups": backups, "trace": [f"{line} ({how})"]}
 
-    # ------------------------------------------------------------------ fetcher
     async def fetcher(state: PipelineState) -> dict:
         frontier = state.get("frontier")
         if frontier is None or (not frontier and not state.get("pages_fetched")):
@@ -181,9 +165,8 @@ def build_graph(rt: Runtime):
             return res, page
 
         done = list(await asyncio.gather(*(one(i) for i in todo)))
-        # A first-round source that refused or failed is replaced by the next-ranked backup.
         backups = list(state.get("backups") or [])
-        needed = sum(1 for _, p in done if not p["ok"])  # first-round failures to replace
+        needed = sum(1 for _, p in done if not p["ok"])
         replaced = 0
         while backups and not state.get("pages_fetched"):
             missing = needed - replaced
@@ -213,7 +196,6 @@ def build_graph(rt: Runtime):
             "trace": [f"fetcher: {len(pages) - len(failed)}/{len(pages)} pages ok [{methods}]"],
         }
 
-    # ------------------------------------------------------------------ specialists
     async def specialists(state: PipelineState) -> dict:
         pages = [p for p in state.get("pages") or [] if p["ok"]]
         update: dict[str, Any] = {"trace": []}
@@ -262,7 +244,6 @@ def build_graph(rt: Runtime):
         update["errors"] = [f"{e['page']['url']}: {err}" for e in extracted for err in e["errors"]]
         return update
 
-    # ------------------------------------------------------------------ verifier
     async def verifier(state: PipelineState) -> dict:
         mode = mode_of(state)
         quality = dict(state.get("quality") or {"extracted": 0, "kept": 0, "empty": 0, "low_grounding": 0})
@@ -294,7 +275,6 @@ def build_graph(rt: Runtime):
             return "fetcher"
         return "store"
 
-    # ------------------------------------------------------------------ store
     async def store(state: PipelineState) -> dict:
         records, dups = dedupe(state.get("records") or [], mode_of(state).dedupe_on)
         quality = dict(state.get("quality") or {})
@@ -337,7 +317,6 @@ def build_graph(rt: Runtime):
     def after_store(state: PipelineState) -> str:
         return "analyst" if state.get("analyze") and (state.get("store") or {}).get("rows_added") else END
 
-    # ------------------------------------------------------------------ analyst (+ reporter)
     async def analyst(state: PipelineState) -> dict:
         question = state.get("question") or state["plan"].get("analysis_question") or mode_of(state).default_question
         try:
@@ -367,7 +346,6 @@ def build_graph(rt: Runtime):
 
 
 def _resolve_name(storage: Storage, requested: str | None, suggested: str | None, mode: str) -> tuple[str, bool]:
-    """A name the user chose is appended to; an auto-generated name never overwrites existing data."""
     if requested:
         return sanitize_name(requested), True
     base = sanitize_name(suggested or f"{mode}_{datetime.now():%Y%m%d_%H%M}")[:40]
@@ -396,8 +374,6 @@ async def run_pipeline(rt: Runtime, **inputs: Any) -> PipelineState:
     graph = build_graph(rt)
     return await graph.ainvoke(state, {"recursion_limit": 60})
 
-
-# ----------------------------------------------------------------------------- analysis
 
 def _execute(df: pd.DataFrame, plan: roles.AnalysisPlan, lists: list[str]):
     try:

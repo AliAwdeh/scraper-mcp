@@ -1,6 +1,3 @@
-"""HTML -> compact Markdown the extraction agents can read, plus the structured
-signals that make extraction more accurate (JSON-LD, meta tags, pagination links)."""
-
 from __future__ import annotations
 
 import json
@@ -15,7 +12,7 @@ _NOISE_TAGS = ["script", "style", "noscript", "svg", "iframe", "template", "canv
                "button", "input", "select", "textarea", "link", "meta", "picture", "video", "audio"]
 _LAYOUT_TAGS = ["nav", "footer", "aside"]
 _NEXT_TEXT = re.compile(r"^\s*(?:(?:next|next page|older posts|older|more results)\s*[›»>→]{0,2}|[›»→]|>>?)\s*$", re.I)
-_NEXT_CLASS = re.compile(r"(?:^|[-_])next(?:$|[-_])", re.I)  # "next", "pagination-next", "next-page"
+_NEXT_CLASS = re.compile(r"(?:^|[-_])next(?:$|[-_])", re.I)
 _JS_MARKERS = re.compile(r"(enable javascript|requires javascript|javascript is (disabled|required)|"
                          r"please turn on javascript|you need to enable javascript)", re.I)
 _EMPTY_APP_ROOT = re.compile(r'<div[^>]+id=["\'](root|app|__next|__nuxt|svelte)["\'][^>]*>\s*</div>', re.I)
@@ -46,7 +43,6 @@ def _visible_text(soup: BeautifulSoup) -> str:
 
 
 def looks_js_rendered(html: str) -> bool:
-    """Heuristic: does this page need a real browser to show its content?"""
     if not html:
         return False
     soup = BeautifulSoup(html, "lxml")
@@ -77,7 +73,6 @@ def _parse_json_ld(soup: BeautifulSoup) -> list[dict]:
                 items.extend(e for e in entry["@graph"] if isinstance(e, dict))
             else:
                 items.append(entry)
-    # Drop pure-navigation noise.
     return [i for i in items if str(i.get("@type", "")).lower() not in ("breadcrumblist", "website", "searchaction")]
 
 
@@ -124,16 +119,10 @@ _SKIP = {"script", "style", "noscript", "template", "svg", "head", "html", "body
 
 
 def _annotate_attributes(soup: BeautifulSoup) -> None:
-    """Many pages keep data in attributes rather than text: a CSS class 'star-rating Three', an
-    aria-label 'Rated 4.5 out of 5', a full title in title="" behind truncated link text, data-*
-    attributes, microdata <meta itemprop content>, <time datetime>, star images with alt text.
-    Markdown conversion drops attributes, so surface them as bracketed text next to the element."""
     rating_containers: set[int] = set()
-    for tag in soup.find_all(True):  # document order: a container is visited before its children
+    for tag in soup.find_all(True):
         if tag.name in _SKIP:
             continue
-        # Children of an annotated rating (e.g. the five <i class="icon-star"> inside
-        # <p class="star-rating Three">) would mislead: all five are drawn, CSS colours three.
         if rating_containers and any(id(parent) in rating_containers for parent in tag.parents):
             continue
         attrs = tag.attrs
@@ -157,7 +146,6 @@ def _annotate_attributes(soup: BeautifulSoup) -> None:
         if isinstance(aria, str) and len(aria) <= 100 and _SIGNAL.search(aria) and aria.lower() not in visible():
             notes.append(aria)
         title = attrs.get("title")
-        # (links keep their title in the Markdown link syntax already)
         if tag.name != "a" and isinstance(title, str) and 0 < len(title.strip()) <= 200 and title.strip().lower() not in visible():
             notes.append(f"title: {title.strip()}")
         for key, val in attrs.items():
@@ -178,8 +166,6 @@ def _annotate_attributes(soup: BeautifulSoup) -> None:
 
 
 def _separate_cards(soup: BeautifulSoup) -> None:
-    """Put a rule between repeated <article> cards so a rating or price is not attributed to the
-    neighbouring item once the HTML is flattened to text."""
     articles = soup.find_all("article")
     if len(articles) >= 2:
         for article in articles:
@@ -207,7 +193,6 @@ _ARTICLE_TYPES = ("article", "newsarticle", "blogposting", "report", "scholarlya
 
 
 def _looks_like_article(page: CleanPage) -> bool:
-    """Use the article extractor only on single-article pages; section pages keep their lists."""
     if page.meta.get("og:type", "").lower() == "article":
         return True
     for item in page.json_ld:
@@ -278,13 +263,12 @@ def clean_non_html(body: str, url: str, content_type: str, *, max_chars: int) ->
 
 
 def chunk_text(text: str, chunk_chars: int, max_chunks: int) -> list[str]:
-    """Split on paragraph boundaries into at most `max_chunks` chunks of ~`chunk_chars`."""
     if len(text) <= chunk_chars:
         return [text]
     chunks: list[str] = []
     current = ""
     for para in text.split("\n\n"):
-        while len(para) > chunk_chars:  # a single huge paragraph
+        while len(para) > chunk_chars:
             if current:
                 chunks.append(current)
                 current = ""

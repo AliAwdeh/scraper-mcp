@@ -1,5 +1,3 @@
-"""Streamable HTTP transport with optional bearer-token auth and DNS-rebinding protection."""
-
 from __future__ import annotations
 
 import hmac
@@ -17,8 +15,6 @@ log = logging.getLogger(__name__)
 
 
 class BearerAuth:
-    """Requires 'Authorization: Bearer <token>' on the MCP endpoint (health checks stay open)."""
-
     def __init__(self, app: ASGIApp, token: str, path: str):
         self.app = app
         self.expected = f"Bearer {token}".encode()
